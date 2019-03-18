@@ -1,0 +1,80 @@
+﻿SELECT DISTINCT
+MAX(rooms.AssetTenancyId) 商户ID,
+MAX(tenancies.TenancyName) 商户名,
+MAX(rooms.RoomId) 房间ID,
+MAX(apartments.FullName) 公寓名,
+MAX(rooms.Floor) 楼层,
+MAX(rooms.RoomNumber) 房间号,
+devices.DeviceId 设备ID,
+MAX(devices.Supplier) 设备商,
+MAX(devices.DeviceType) 设备类型,
+MAX(devices.DeviceCustomName) 设备名称,
+CASE WHEN MAX(devices.DeviceType) IN ('coldwatermeter','elemeter') THEN MAX(devicereadings.DeviceReading) END DeviceMax,
+CASE WHEN MAX(devices.DeviceType) IN ('coldwatermeter','elemeter') THEN MIN(devicereadings.DeviceReading) END DeviceMin,
+CASE WHEN MAX(devices.DeviceType) IN ('coldwatermeter','elemeter') THEN MAX(devicereadings.DeviceReading)-MIN(devicereadings.DeviceReading) END DeviceUsed,
+CASE WHEN MAX(devices.DeviceType) IN ('coldwatermeter','elemeter') THEN MAX(deviceReadings.ReadingTime) END DeviceMaxTime,
+CASE WHEN MAX(devices.DeviceType) IN ('coldwatermeter','elemeter') THEN MIN(deviceReadings.ReadingTime) END DeviceMinTime
+FROM 
+dbo.[KC.Fengniaowu.Talos.Apartments] apartments,
+dbo.[KC.Fengniaowu.Talos.Tenancies] tenancies,
+dbo.[KC.Fengniaowu.Talos.Rooms] rooms,
+dbo.[KC.Fengniaowu.Hebe.Devices] devices,
+dbo.[KC.Fengniaowu.Hebe.DeviceReadings] devicereadings
+WHERE  rooms.AssetTenancyId = devices.AssetTenancyId 
+AND rooms.RoomId = devices.AssociatedRoomId 
+AND devicereadings.DeviceId = devices.DeviceId
+AND devices.IsAssociated = 1
+AND devices.IsPublic = 0
+AND rooms.Enabled =1 AND apartments.Enabled =1 AND tenancies.Enabled =1 AND devicereadings.Enabled = 1
+AND rooms.ApartmentId = apartments.ApartmentId
+AND tenancies.TenancyId = rooms.AssetTenancyId
+AND tenancies.TenancyId NOT IN(
+		 '28342C66E8EE408E9070452799CC8F6E',--蜂鸟屋
+		 '5EF3443B4898414398C8096BA757FDC2',--蜂鸟屋试用
+		 '8BA8F5C841FA4878879DC7907D95DDDD' --北京银行
+)
+AND deviceReadings.ReadingTime > = DATEADD(dd, -3, TODATETIMEOFFSET(CAST(CONVERT(varchar(10), GETDATE(), 23) AS datetime2),'+08:00'))
+AND deviceReadings.ReadingTime < = SWITCHOFFSET(SYSDATETIMEOFFSET(),'+08:00')
+GROUP BY devices.DeviceId
+
+
+UNION ALL
+
+
+SELECT DISTINCT
+MAX(rooms.AssetTenancyId) 商户ID,
+MAX(tenancies.TenancyName) 商户名,
+MAX(rooms.RoomId) 房间ID,
+MAX(apartments.FullName) 公寓名,
+MAX(rooms.Floor) 楼层,
+MAX(rooms.RoomNumber) 房间号,
+devices.DeviceId 设备ID,
+MAX(devices.Supplier)设备商,
+MAX(devices.DeviceType) 设备类型,
+MAX(devices.DeviceCustomName) 设备名称,
+NULL DeviceMax,NULL DeviceMin,
+CASE WHEN MAX(devices.DeviceType) IN ('lock','home_lock') THEN datediff(DAY,MIN(doorOpenRecords.CreateTime),MAX(SWITCHOFFSET(SYSDATETIMEOFFSET(),'+08:00')))+1 END DeviceUsed,
+CASE WHEN MAX(devices.DeviceType) IN ('lock','home_lock') THEN MAX(doorOpenRecords.CreateTime) END DeviceMaxTime,
+CASE WHEN MAX(devices.DeviceType) IN ('lock','home_lock') THEN MIN(doorOpenRecords.CreateTime) END DeviceMinTime
+FROM 
+dbo.[KC.Fengniaowu.Talos.Apartments] apartments,
+dbo.[KC.Fengniaowu.Talos.Tenancies] tenancies,
+dbo.[KC.Fengniaowu.Talos.Rooms] rooms,
+dbo.[KC.Fengniaowu.Hebe.Devices] devices,
+dbo.[KC.Fengniaowu.Hebe.DoorOpenRecords] doorOpenRecords
+WHERE  rooms.AssetTenancyId = devices.AssetTenancyId 
+AND rooms.RoomId = devices.AssociatedRoomId 
+AND	devices.DeviceId = doorOpenRecords.LockUuid
+AND devices.IsAssociated = 1
+AND devices.IsPublic = 0
+AND rooms.Enabled =1 AND apartments.Enabled =1 AND tenancies.Enabled =1 AND doorOpenRecords.Enabled = 1
+AND rooms.ApartmentId = apartments.ApartmentId
+AND tenancies.TenancyId = rooms.AssetTenancyId
+AND tenancies.TenancyId NOT IN(
+		 '28342C66E8EE408E9070452799CC8F6E',--蜂鸟屋
+		 '5EF3443B4898414398C8096BA757FDC2',--蜂鸟屋试用
+		 '8BA8F5C841FA4878879DC7907D95DDDD' --北京银行
+)
+AND doorOpenRecords.CreateTime > = DATEADD(dd, -3, TODATETIMEOFFSET(CAST(CONVERT(varchar(10), GETDATE(), 23) AS datetime2),'+08:00'))
+AND doorOpenRecords.CreateTime < = SWITCHOFFSET(SYSDATETIMEOFFSET(),'+08:00')
+GROUP BY devices.DeviceId
